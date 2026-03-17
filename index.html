@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aural Flux | Motor de Ops V2</title>
+    <title>Aural Flux | Ops Engine V3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         body { background-color: #0f172a; color: #f8fafc; font-family: monospace; }
-        /* Cero bordes en toda la interfaz */
+        /* Diseño limpio, cero bordes */
         * { border: none !important; outline: none !important; box-shadow: none !important; }
         .card { background-color: #1e293b; border-radius: 8px; }
         .input-bg { background-color: #334155; }
@@ -16,32 +17,28 @@
 </head>
 <body class="p-8">
     <div class="max-w-7xl mx-auto">
-        <h1 class="text-4xl font-bold text-teal-400 mb-2">Aural Flux // Ops Engine V2</h1>
-        <p class="text-slate-400 mb-8">Cruce local: Costos P.M. + Pagos + Ventas TXT</p>
+        <h1 class="text-4xl font-bold text-teal-400 mb-2">Aural Flux // Ops Engine V3</h1>
+        <p class="text-slate-400 mb-8">Memoria local, Multi-formato (Excel/CSV/TXT) y Automatización de Ads</p>
 
-        <div class="card p-6 mb-6 grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div>
-                <label class="block text-xs text-slate-400 mb-2 uppercase tracking-wider">1. CSV Costos P.M.</label>
-                <input type="file" id="fileCostos" accept=".csv" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:bg-teal-500 file:text-white cursor-pointer input-bg rounded">
+        <div class="card p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-white">Memoria de Costos P.M.</h2>
+                <span id="statusMemoria" class="bg-red-500/20 text-red-400 py-1 px-3 rounded text-xs font-bold">VACÍO</span>
             </div>
-            <div>
-                <label class="block text-xs text-slate-400 mb-2 uppercase tracking-wider">2. CSV Pagos Amazon</label>
-                <input type="file" id="filePagos" accept=".csv" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:bg-teal-500 file:text-white cursor-pointer input-bg rounded">
-            </div>
-            <div>
-                <label class="block text-xs text-slate-400 mb-2 uppercase tracking-wider">3. TXT Ventas</label>
-                <input type="file" id="fileVentas" accept=".txt" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:bg-teal-500 file:text-white cursor-pointer input-bg rounded">
-            </div>
-            <div>
-                <label class="block text-xs text-slate-400 mb-2 uppercase tracking-wider">Gasto Mensual Ads (MXN)</label>
-                <input type="number" id="inputAds" class="w-full input-bg rounded p-2 text-white font-bold" value="0">
-            </div>
+            <p class="text-sm text-slate-400 mb-4">La data se queda guardada en tu navegador. Sube un archivo (.xlsx, .csv, .txt) solo si necesitas actualizar tus costos.</p>
+            <input type="file" id="fileCostos" accept=".csv, .xlsx, .xls, .txt" class="w-full md:w-1/2 text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:bg-slate-700 file:text-white cursor-pointer input-bg rounded hover:file:bg-slate-600 transition-colors">
         </div>
 
-        <div class="flex gap-4 mb-8">
-            <button id="btnProcesar" class="bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold py-3 px-8 rounded transition-colors">
-                PROCESAR DATA
-            </button>
+        <div class="card p-6 mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-xs text-slate-400 mb-2 uppercase tracking-wider">Reporte de Pagos Amazon (.xlsx, .csv, .txt)</label>
+                <input type="file" id="filePagos" accept=".csv, .xlsx, .xls, .txt" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:bg-teal-500 file:text-white cursor-pointer input-bg rounded">
+            </div>
+            <div class="flex items-end">
+                <button id="btnProcesar" class="w-full bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold py-3 px-8 rounded transition-colors">
+                    PROCESAR DATA
+                </button>
+            </div>
         </div>
 
         <div id="dashboard" class="hidden">
@@ -64,7 +61,7 @@
                     <p class="text-4xl font-bold text-purple-400 mt-2">-$<span id="resCogs">0</span></p>
                 </div>
                 <div class="card p-6">
-                    <h3 class="text-xs text-slate-400 uppercase">Publicidad (Ads)</h3>
+                    <h3 class="text-xs text-slate-400 uppercase">Costo Publicidad (Auto)</h3>
                     <p class="text-4xl font-bold text-blue-400 mt-2">-$<span id="resAds">0</span></p>
                 </div>
                 <div class="card p-6">
@@ -75,13 +72,11 @@
 
             <h2 class="text-2xl font-bold text-white mb-4">Radiografía por Pedido</h2>
             <div class="card p-6 mb-8 flex gap-4 items-center">
-                <input type="text" id="searchId" placeholder="Pega el Id. del pedido (ej. 702-12345...)" class="flex-1 input-bg rounded p-3 text-white text-lg placeholder-slate-500">
+                <input type="text" id="searchId" placeholder="Id. del pedido (ej. 702-...)" class="flex-1 input-bg rounded p-3 text-white text-lg">
                 <button id="btnBuscar" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded transition-colors">BUSCAR</button>
             </div>
-
             <div id="resultadoBusqueda" class="hidden card p-6">
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="infoPedido">
-                    </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="infoPedido"></div>
             </div>
         </div>
     </div>
@@ -89,112 +84,151 @@
     <script>
         let mapaCostos = {};
         let mapaPedidos = {};
+        let gastoAdsGlobal = 0;
 
-        // 1. Leer archivo como texto
-        const readFile = (file) => new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = e => resolve(e.target.result);
-            reader.onerror = e => reject(e);
-            reader.readAsText(file);
+        // Cargar costos guardados en memoria al abrir el dashboard
+        if(localStorage.getItem('auralFlux_costos')) {
+            mapaCostos = JSON.parse(localStorage.getItem('auralFlux_costos'));
+            const count = Object.keys(mapaCostos).length;
+            const badge = document.getElementById('statusMemoria');
+            badge.innerText = `ACTIVO: ${count} SKUs EN MEMORIA`;
+            badge.className = 'bg-teal-500/20 text-teal-400 py-1 px-3 rounded text-xs font-bold';
+        }
+
+        // Lector universal de archivos (Excel, CSV, TXT)
+        const readData = async (file) => {
+            const name = file.name.toLowerCase();
+            const buffer = await file.arrayBuffer();
+            
+            if(name.endsWith('.xlsx') || name.endsWith('.xls')) {
+                const wb = XLSX.read(buffer, { type: 'array' });
+                return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+            } else {
+                const decoder = new TextDecoder('utf-8');
+                const text = decoder.decode(buffer);
+                return new Promise(resolve => {
+                    Papa.parse(text, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: res => resolve(res.data)
+                    });
+                });
+            }
+        };
+
+        // Guardar/Actualizar Costos
+        document.getElementById('fileCostos').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            const data = await readData(file);
+            let nuevosCostos = {};
+            
+            data.forEach(row => {
+                const keys = Object.keys(row);
+                // Busca columnas ignorando mayúsculas
+                const skuKey = keys.find(k => k.toUpperCase().includes('SKU'));
+                const costKey = keys.find(k => k.toUpperCase().includes('COSTO P.M') || k.toUpperCase() === 'COSTO');
+                
+                if(skuKey && costKey && row[skuKey]) {
+                    nuevosCostos[row[skuKey].toString().trim().toUpperCase()] = parseFloat(row[costKey]) || 0;
+                }
+            });
+            
+            if(Object.keys(nuevosCostos).length > 0) {
+                mapaCostos = nuevosCostos;
+                localStorage.setItem('auralFlux_costos', JSON.stringify(mapaCostos));
+                const badge = document.getElementById('statusMemoria');
+                badge.innerText = `ACTUALIZADO: ${Object.keys(mapaCostos).length} SKUs`;
+                badge.className = 'bg-teal-500/20 text-teal-400 py-1 px-3 rounded text-xs font-bold';
+            } else {
+                alert("No encontré las columnas 'SKU' y 'Costo P.M.' wey, checa el formato de tu archivo.");
+            }
         });
 
+        // Procesar Reporte de Pagos
         document.getElementById('btnProcesar').addEventListener('click', async () => {
-            const fileCostos = document.getElementById('fileCostos').files[0];
-            const filePagos = document.getElementById('filePagos').files[0];
+            const file = document.getElementById('filePagos').files[0];
+            if (!file) return alert('Sube tu reporte de pagos de Amazon wey.');
+            if (Object.keys(mapaCostos).length === 0) return alert('Tu memoria de costos está vacía. Sube tu catálogo primero.');
+
+            let data = [];
+            const name = file.name.toLowerCase();
             
-            if (!fileCostos || !filePagos) {
-                alert('Falta subir el CSV de Costos o el de Pagos wey.');
-                return;
+            // Limpieza específica para los TXT/CSV raros de Amazon
+            if(name.endsWith('.csv') || name.endsWith('.txt')) {
+                const text = await file.text();
+                const lines = text.split('\n');
+                const idx = lines.findIndex(l => l.includes('Id. del pedido') || l.includes('order-id'));
+                const cleanText = lines.slice(idx > -1 ? idx : 0).join('\n');
+                data = await new Promise(resolve => Papa.parse(cleanText, { header: true, skipEmptyLines: true, complete: r => resolve(r.data) }));
+            } else {
+                data = await readData(file);
             }
 
-            // Reset
-            mapaCostos = {};
             mapaPedidos = {};
+            gastoAdsGlobal = 0;
             let ventaTotal = 0, feesTotales = 0, cogsTotal = 0;
 
-            // Procesar Costos
-            const txtCostos = await readFile(fileCostos);
-            Papa.parse(txtCostos, {
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    results.data.forEach(row => {
-                        if(row.SKU && row['Costo P.M.']) {
-                            mapaCostos[row.SKU.trim().toUpperCase()] = parseFloat(row['Costo P.M.']) || 0;
-                        }
-                    });
+            data.forEach(row => {
+                const getValStr = (strMatch) => {
+                    const key = Object.keys(row).find(k => k.toLowerCase().includes(strMatch));
+                    return key ? parseFloat((row[key] || '0').toString().replace(/,/g, '')) || 0 : 0;
+                };
+
+                const desc = (row['descripción'] || row['description'] || '').toLowerCase();
+                
+                // Extracción automática de Publicidad (Ads)
+                if (desc.includes('costo de la publicidad') || desc.includes('advertising') || desc.includes('ads')) {
+                    gastoAdsGlobal += Math.abs(getValStr('total'));
+                    return; // Saltamos para no cruzarlo como un pedido normal
                 }
+
+                const id = row['Id. del pedido'] || row['order-id'];
+                const sku = (row['sku'] || '').toString().trim().toUpperCase();
+                
+                if (!id || !sku) return;
+
+                const venta = getValStr('ventas de productos') || getValStr('product sales');
+                const fees = getValStr('tarifas de venta') + getValStr('otra transacción') + getValStr('cuenta') + getValStr('reglamentaria') + getValStr('fba'); 
+                const totalRow = getValStr('total');
+                
+                const finalFees = fees !== 0 ? fees : (venta === 0 ? totalRow : 0);
+                const costoPM = mapaCostos[sku] || 0;
+
+                if (!mapaPedidos[id]) mapaPedidos[id] = { id, sku, venta: 0, fees: 0, cogs: 0 };
+                
+                mapaPedidos[id].venta += venta;
+                mapaPedidos[id].fees += finalFees;
+                
+                if (venta > 0 && mapaPedidos[id].cogs === 0) mapaPedidos[id].cogs = costoPM;
+
+                ventaTotal += venta;
+                feesTotales += Math.abs(finalFees);
+                if(venta > 0) cogsTotal += costoPM;
             });
 
-            // Procesar Pagos
-            const txtPagos = await readFile(filePagos);
-            // Quitamos las primeras líneas de basura de Amazon antes del header
-            const lineasPagos = txtPagos.split('\n');
-            const idxHeader = lineasPagos.findIndex(l => l.includes('Id. del pedido') || l.includes('order-id'));
-            const csvLimpio = lineasPagos.slice(idxHeader).join('\n');
+            // Matemáticas Finales
+            const indirecto = ventaTotal * 0.32;
+            const profit = ventaTotal - indirecto - feesTotales - cogsTotal - gastoAdsGlobal;
 
-            Papa.parse(csvLimpio, {
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    results.data.forEach(row => {
-                        const id = row['Id. del pedido'] || row['order-id'];
-                        const sku = (row['sku'] || '').trim().toUpperCase();
-                        
-                        if (!id || !sku) return;
+            document.getElementById('resVenta').innerText = ventaTotal.toLocaleString('es-MX', {minimumFractionDigits: 2});
+            document.getElementById('resIndirecto').innerText = indirecto.toLocaleString('es-MX', {minimumFractionDigits: 2});
+            document.getElementById('resFees').innerText = feesTotales.toLocaleString('es-MX', {minimumFractionDigits: 2});
+            document.getElementById('resCogs').innerText = cogsTotal.toLocaleString('es-MX', {minimumFractionDigits: 2});
+            document.getElementById('resAds').innerText = gastoAdsGlobal.toLocaleString('es-MX', {minimumFractionDigits: 2});
+            document.getElementById('resProfit').innerText = profit.toLocaleString('es-MX', {minimumFractionDigits: 2});
 
-                        // Parseo de lana (quitamos comas si vienen en miles)
-                        const getVal = (col) => parseFloat((row[col] || '0').replace(/,/g, '')) || 0;
-                        
-                        const venta = getVal('ventas de productos');
-                        const fees = getVal('Tarifas de venta') + getVal('Tarifas de otra transacción') + getVal('Tarifas de la cuenta') + getVal('Tarifa reglamentaria'); // las tarifas vienen en negativo
-
-                        // Costo Puesto en México del dict
-                        const costoPM = mapaCostos[sku] || 0;
-
-                        if (!mapaPedidos[id]) {
-                            mapaPedidos[id] = { id, sku, venta: 0, fees: 0, cogs: 0 };
-                        }
-                        
-                        mapaPedidos[id].venta += venta;
-                        mapaPedidos[id].fees += fees;
-                        // Solo sumamos el cogs si hubo venta (no en reembolsos puros)
-                        if (venta > 0 && mapaPedidos[id].cogs === 0) {
-                            mapaPedidos[id].cogs = costoPM;
-                        }
-
-                        ventaTotal += venta;
-                        feesTotales += Math.abs(fees);
-                        if(venta > 0) cogsTotal += costoPM;
-                    });
-                }
-            });
-
-            // Proyectar Resultados
-            setTimeout(() => {
-                const ads = parseFloat(document.getElementById('inputAds').value) || 0;
-                const indirecto = ventaTotal * 0.32;
-                const profit = ventaTotal - indirecto - feesTotales - cogsTotal - ads;
-
-                document.getElementById('resVenta').innerText = ventaTotal.toLocaleString('es-MX', {minimumFractionDigits: 2});
-                document.getElementById('resIndirecto').innerText = indirecto.toLocaleString('es-MX', {minimumFractionDigits: 2});
-                document.getElementById('resFees').innerText = feesTotales.toLocaleString('es-MX', {minimumFractionDigits: 2});
-                document.getElementById('resCogs').innerText = cogsTotal.toLocaleString('es-MX', {minimumFractionDigits: 2});
-                document.getElementById('resAds').innerText = ads.toLocaleString('es-MX', {minimumFractionDigits: 2});
-                document.getElementById('resProfit').innerText = profit.toLocaleString('es-MX', {minimumFractionDigits: 2});
-
-                document.getElementById('dashboard').classList.remove('hidden');
-            }, 500); // Pequeño delay para asegurar que PapaParse termine en memoria
+            document.getElementById('dashboard').classList.remove('hidden');
         });
 
-        // Buscador
+        // Motor de búsqueda de pedidos
         document.getElementById('btnBuscar').addEventListener('click', () => {
             const query = document.getElementById('searchId').value.trim();
             const resDiv = document.getElementById('resultadoBusqueda');
             const infoDiv = document.getElementById('infoPedido');
             
             if (!query || !mapaPedidos[query]) {
-                infoDiv.innerHTML = `<p class="text-red-400 col-span-4">Pedido no encontrado o no tiene registros de cobro en este periodo.</p>`;
+                infoDiv.innerHTML = `<p class="text-red-400 col-span-4">El pedido no cruzó o no cobró en este periodo.</p>`;
                 resDiv.classList.remove('hidden');
                 return;
             }
