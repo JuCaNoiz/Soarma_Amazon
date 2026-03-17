@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aural Flux | Motor de Ops V2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: monospace; }
+        /* Cero bordes en toda la interfaz */
+        * { border: none !important; outline: none !important; box-shadow: none !important; }
+        .card { background-color: #1e293b; border-radius: 8px; }
+        .input-bg { background-color: #334155; }
+    </style>
+</head>
+<body class="p-8">
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-4xl font-bold text-teal-400 mb-2">Aural Flux // Ops Engine V2</h1>
+        <p class="text-slate-400 mb-8">Cruce local: Costos P.M. + Pagos + Ventas TXT</p>
+
+        <div class="card p-6 mb-6 grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div>
+                <label class="block text-xs text-slate-400 mb-2 uppercase tracking-wider">1. CSV Costos P.M.</label>
+                <input type="file" id="fileCostos" accept=".csv" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:bg-teal-500 file:text-white cursor-pointer input-bg rounded">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-2 uppercase tracking-wider">2. CSV Pagos Amazon</label>
+                <input type="file" id="filePagos" accept=".csv" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:bg-teal-500 file:text-white cursor-pointer input-bg rounded">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-2 uppercase tracking-wider">3. TXT Ventas</label>
+                <input type="file" id="fileVentas" accept=".txt" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:bg-teal-500 file:text-white cursor-pointer input-bg rounded">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-2 uppercase tracking-wider">Gasto Mensual Ads (MXN)</label>
+                <input type="number" id="inputAds" class="w-full input-bg rounded p-2 text-white font-bold" value="0">
+            </div>
+        </div>
+
+        <div class="flex gap-4 mb-8">
+            <button id="btnProcesar" class="bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold py-3 px-8 rounded transition-colors">
+                PROCESAR DATA
+            </button>
+        </div>
+
+        <div id="dashboard" class="hidden">
+            <h2 class="text-2xl font-bold text-white mb-4">Resumen Global</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div class="card p-6">
+                    <h3 class="text-xs text-slate-400 uppercase">Venta Bruta Cobrada</h3>
+                    <p class="text-4xl font-bold text-white mt-2">$<span id="resVenta">0</span></p>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-xs text-slate-400 uppercase">Gasto Interno (32%)</h3>
+                    <p class="text-4xl font-bold text-red-400 mt-2">-$<span id="resIndirecto">0</span></p>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-xs text-slate-400 uppercase">Tarifas Amazon (Fees+Envío)</h3>
+                    <p class="text-4xl font-bold text-yellow-400 mt-2">-$<span id="resFees">0</span></p>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-xs text-slate-400 uppercase">Costo Materiales P.M.</h3>
+                    <p class="text-4xl font-bold text-purple-400 mt-2">-$<span id="resCogs">0</span></p>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-xs text-slate-400 uppercase">Publicidad (Ads)</h3>
+                    <p class="text-4xl font-bold text-blue-400 mt-2">-$<span id="resAds">0</span></p>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-xs text-slate-400 uppercase">Profit Neto Real</h3>
+                    <p class="text-4xl font-bold text-green-400 mt-2">$<span id="resProfit">0</span></p>
+                </div>
+            </div>
+
+            <h2 class="text-2xl font-bold text-white mb-4">Radiografía por Pedido</h2>
+            <div class="card p-6 mb-8 flex gap-4 items-center">
+                <input type="text" id="searchId" placeholder="Pega el Id. del pedido (ej. 702-12345...)" class="flex-1 input-bg rounded p-3 text-white text-lg placeholder-slate-500">
+                <button id="btnBuscar" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded transition-colors">BUSCAR</button>
+            </div>
+
+            <div id="resultadoBusqueda" class="hidden card p-6">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="infoPedido">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let mapaCostos = {};
+        let mapaPedidos = {};
+
+        // 1. Leer archivo como texto
+        const readFile = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = e => reject(e);
+            reader.readAsText(file);
+        });
+
+        document.getElementById('btnProcesar').addEventListener('click', async () => {
+            const fileCostos = document.getElementById('fileCostos').files[0];
+            const filePagos = document.getElementById('filePagos').files[0];
+            
+            if (!fileCostos || !filePagos) {
+                alert('Falta subir el CSV de Costos o el de Pagos wey.');
+                return;
+            }
+
+            // Reset
+            mapaCostos = {};
+            mapaPedidos = {};
+            let ventaTotal = 0, feesTotales = 0, cogsTotal = 0;
+
+            // Procesar Costos
+            const txtCostos = await readFile(fileCostos);
+            Papa.parse(txtCostos, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    results.data.forEach(row => {
+                        if(row.SKU && row['Costo P.M.']) {
+                            mapaCostos[row.SKU.trim().toUpperCase()] = parseFloat(row['Costo P.M.']) || 0;
+                        }
+                    });
+                }
+            });
+
+            // Procesar Pagos
+            const txtPagos = await readFile(filePagos);
+            // Quitamos las primeras líneas de basura de Amazon antes del header
+            const lineasPagos = txtPagos.split('\n');
+            const idxHeader = lineasPagos.findIndex(l => l.includes('Id. del pedido') || l.includes('order-id'));
+            const csvLimpio = lineasPagos.slice(idxHeader).join('\n');
+
+            Papa.parse(csvLimpio, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    results.data.forEach(row => {
+                        const id = row['Id. del pedido'] || row['order-id'];
+                        const sku = (row['sku'] || '').trim().toUpperCase();
+                        
+                        if (!id || !sku) return;
+
+                        // Parseo de lana (quitamos comas si vienen en miles)
+                        const getVal = (col) => parseFloat((row[col] || '0').replace(/,/g, '')) || 0;
+                        
+                        const venta = getVal('ventas de productos');
+                        const fees = getVal('Tarifas de venta') + getVal('Tarifas de otra transacción') + getVal('Tarifas de la cuenta') + getVal('Tarifa reglamentaria'); // las tarifas vienen en negativo
+
+                        // Costo Puesto en México del dict
+                        const costoPM = mapaCostos[sku] || 0;
+
+                        if (!mapaPedidos[id]) {
+                            mapaPedidos[id] = { id, sku, venta: 0, fees: 0, cogs: 0 };
+                        }
+                        
+                        mapaPedidos[id].venta += venta;
+                        mapaPedidos[id].fees += fees;
+                        // Solo sumamos el cogs si hubo venta (no en reembolsos puros)
+                        if (venta > 0 && mapaPedidos[id].cogs === 0) {
+                            mapaPedidos[id].cogs = costoPM;
+                        }
+
+                        ventaTotal += venta;
+                        feesTotales += Math.abs(fees);
+                        if(venta > 0) cogsTotal += costoPM;
+                    });
+                }
+            });
+
+            // Proyectar Resultados
+            setTimeout(() => {
+                const ads = parseFloat(document.getElementById('inputAds').value) || 0;
+                const indirecto = ventaTotal * 0.32;
+                const profit = ventaTotal - indirecto - feesTotales - cogsTotal - ads;
+
+                document.getElementById('resVenta').innerText = ventaTotal.toLocaleString('es-MX', {minimumFractionDigits: 2});
+                document.getElementById('resIndirecto').innerText = indirecto.toLocaleString('es-MX', {minimumFractionDigits: 2});
+                document.getElementById('resFees').innerText = feesTotales.toLocaleString('es-MX', {minimumFractionDigits: 2});
+                document.getElementById('resCogs').innerText = cogsTotal.toLocaleString('es-MX', {minimumFractionDigits: 2});
+                document.getElementById('resAds').innerText = ads.toLocaleString('es-MX', {minimumFractionDigits: 2});
+                document.getElementById('resProfit').innerText = profit.toLocaleString('es-MX', {minimumFractionDigits: 2});
+
+                document.getElementById('dashboard').classList.remove('hidden');
+            }, 500); // Pequeño delay para asegurar que PapaParse termine en memoria
+        });
+
+        // Buscador
+        document.getElementById('btnBuscar').addEventListener('click', () => {
+            const query = document.getElementById('searchId').value.trim();
+            const resDiv = document.getElementById('resultadoBusqueda');
+            const infoDiv = document.getElementById('infoPedido');
+            
+            if (!query || !mapaPedidos[query]) {
+                infoDiv.innerHTML = `<p class="text-red-400 col-span-4">Pedido no encontrado o no tiene registros de cobro en este periodo.</p>`;
+                resDiv.classList.remove('hidden');
+                return;
+            }
+
+            const p = mapaPedidos[query];
+            const gIndirecto = p.venta * 0.32;
+            const pNeto = p.venta - gIndirecto - Math.abs(p.fees) - p.cogs;
+
+            infoDiv.innerHTML = `
+                <div><p class="text-xs text-slate-400 uppercase">SKU</p><p class="text-lg text-white font-bold">${p.sku}</p></div>
+                <div><p class="text-xs text-slate-400 uppercase">Cobro Bruto</p><p class="text-lg text-teal-400 font-bold">$${p.venta.toFixed(2)}</p></div>
+                <div><p class="text-xs text-slate-400 uppercase">Fees Plataforma</p><p class="text-lg text-yellow-400 font-bold">-$${Math.abs(p.fees).toFixed(2)}</p></div>
+                <div><p class="text-xs text-slate-400 uppercase">Costo P.M.</p><p class="text-lg text-purple-400 font-bold">-$${p.cogs.toFixed(2)}</p></div>
+                <div><p class="text-xs text-slate-400 uppercase">Gasto Interno (32%)</p><p class="text-lg text-red-400 font-bold">-$${gIndirecto.toFixed(2)}</p></div>
+                <div class="col-span-3"><p class="text-xs text-slate-400 uppercase">Profit Neto del Pedido</p><p class="text-2xl text-green-400 font-bold">$${pNeto.toFixed(2)}</p></div>
+            `;
+            resDiv.classList.remove('hidden');
+        });
+    </script>
+</body>
+</html>
