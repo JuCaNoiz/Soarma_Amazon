@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aural Flux | Ops Engine V4</title>
+    <title>Aural Flux | Ops Engine V5.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
@@ -11,7 +11,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body { background-color: #0f172a; color: #f8fafc; font-family: monospace; }
-        /* Cero bordes en todo el diseño por orden tuya */
         * { border: none !important; outline: none !important; box-shadow: none !important; }
         .card { background-color: #1e293b; border-radius: 8px; }
         .input-bg { background-color: #334155; }
@@ -21,7 +20,7 @@
 <body class="p-4 md:p-8">
     <div class="max-w-7xl mx-auto">
         <div class="flex justify-between items-center mb-2">
-            <h1 class="text-4xl font-bold text-teal-400">Aural Flux // Ops V4</h1>
+            <h1 class="text-4xl font-bold text-teal-400">Aural Flux // Ops V5.0</h1>
             <button id="btnLimpiarBD" class="bg-red-500/20 hover:bg-red-500/40 text-red-400 py-2 px-4 rounded text-xs font-bold transition-colors">LIMPIAR MEMORIA HISTÓRICA</button>
         </div>
         <p class="text-slate-400 mb-6">Periodo detectado: <span id="rangoFechas" class="text-teal-300 font-bold">Esperando datos...</span></p>
@@ -36,7 +35,7 @@
             </div>
             <div>
                 <div class="flex justify-between mb-2">
-                    <label class="text-xs text-slate-400 uppercase tracking-wider">Reportes Amazon (Múltiples)</label>
+                    <label class="text-xs text-slate-400 uppercase tracking-wider">Reportes Amazon (CSV/XLSX)</label>
                     <span id="badgeDB" class="text-xs text-red-400 font-bold">0 REGISTROS</span>
                 </div>
                 <input type="file" id="filePagos" accept=".csv, .xlsx, .txt" multiple class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:bg-teal-500 file:text-slate-900 file:font-bold cursor-pointer input-bg rounded transition">
@@ -53,7 +52,6 @@
         </div>
 
         <div id="contenedorPrincipal" class="hidden">
-            
             <div id="tabResumen" class="tab-content block">
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <div class="card p-4 text-center"><p class="text-xs text-slate-400 uppercase">Margen Neto</p><p id="kpiMargen" class="text-2xl font-bold text-green-400">0%</p></div>
@@ -120,7 +118,6 @@
                 </div>
                 <div id="resPedido" class="hidden card p-6 grid grid-cols-2 md:grid-cols-4 gap-4"></div>
             </div>
-
         </div>
     </div>
 
@@ -128,55 +125,94 @@
         let dbCostos = JSON.parse(localStorage.getItem('auralFlux_costos')) || {};
         let dbTransacciones = JSON.parse(localStorage.getItem('auralFlux_tx')) || [];
         let myChart = null;
-        let mapaPedidos = {}; // Para el buscador
+        let mapaPedidos = {};
 
-        // Iniciar badges
         function updateBadges() {
             const cKeys = Object.keys(dbCostos).length;
             if(cKeys > 0) document.getElementById('badgeCostos').innerHTML = `<span class="text-teal-400">${cKeys} SKUs LISTOS</span>`;
             if(dbTransacciones.length > 0) document.getElementById('badgeDB').innerHTML = `<span class="text-teal-400">${dbTransacciones.length} LÍNEAS EN MEMORIA</span>`;
+            else document.getElementById('badgeDB').innerHTML = `<span class="text-red-400 font-bold">0 REGISTROS</span>`;
         }
         updateBadges();
 
-        // Limpiar BD
         document.getElementById('btnLimpiarBD').addEventListener('click', () => {
             if(confirm('¿Seguro wey? Vas a borrar el historial de transacciones.')) {
                 dbTransacciones = [];
                 localStorage.setItem('auralFlux_tx', JSON.stringify([]));
                 updateBadges();
+                document.getElementById('contenedorPrincipal').classList.add('hidden');
             }
         });
 
-        // Lector universal
+        // ESCÁNER UNIVERSAL DE ARCHIVOS (El fix maestro)
         const readData = async (file) => {
             const name = file.name.toLowerCase();
-            const buffer = await file.arrayBuffer();
+            
+            // Si es Excel, saltamos la basura hasta encontrar los encabezados
             if(name.endsWith('.xlsx') || name.endsWith('.xls')) {
+                const buffer = await file.arrayBuffer();
                 const wb = XLSX.read(buffer, { type: 'array' });
-                return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+                const sheet = wb.Sheets[wb.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }); 
+                
+                let headerIdx = 0;
+                for(let i=0; i<json.length; i++) {
+                    const rowStr = json[i].join(' ').toLowerCase();
+                    if(rowStr.includes('sku') && (rowStr.includes('pedido') || rowStr.includes('order'))) {
+                        headerIdx = i;
+                        break;
+                    }
+                }
+                
+                const headers = json[headerIdx];
+                const data = [];
+                for(let i=headerIdx+1; i<json.length; i++) {
+                    let obj = {};
+                    headers.forEach((h, j) => {
+                        if(h) obj[h.toString().trim()] = json[i][j];
+                    });
+                    data.push(obj);
+                }
+                return data;
             } else {
-                const text = new TextDecoder('utf-8').decode(buffer);
-                const lines = text.split('\n');
-                const idx = lines.findIndex(l => l.includes('Id. del pedido') || l.includes('order-id') || l.includes('fecha/hora'));
-                const cleanText = lines.slice(idx > -1 ? idx : 0).join('\n');
-                return new Promise(resolve => Papa.parse(cleanText, { header: true, skipEmptyLines: true, complete: res => resolve(res.data) }));
+                // Si es CSV/TXT forzamos ISO-8859-1 para respetar los acentos de México
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const text = e.target.result;
+                        const lines = text.split(/\r?\n/);
+                        let idx = lines.findIndex(l => {
+                            const low = l.toLowerCase();
+                            return low.includes('sku') && (low.includes('pedido') || low.includes('order'));
+                        });
+                        
+                        if (idx === -1) idx = 0;
+                        const cleanText = lines.slice(idx).join('\n');
+                        
+                        Papa.parse(cleanText, {
+                            header: true,
+                            skipEmptyLines: true,
+                            complete: res => resolve(res.data)
+                        });
+                    };
+                    reader.readAsText(file, 'ISO-8859-1'); 
+                });
             }
         };
 
-        // Cargar Costos
         document.getElementById('fileCostos').addEventListener('change', async (e) => {
             if(!e.target.files[0]) return;
             const data = await readData(e.target.files[0]);
             data.forEach(row => {
-                const kSku = Object.keys(row).find(k => k.toUpperCase().includes('SKU'));
-                const kCost = Object.keys(row).find(k => k.toUpperCase().includes('COSTO'));
+                const keys = Object.keys(row);
+                const kSku = keys.find(k => k.toUpperCase().includes('SKU'));
+                const kCost = keys.find(k => k.toUpperCase().includes('COSTO'));
                 if(kSku && kCost && row[kSku]) dbCostos[row[kSku].toString().trim().toUpperCase()] = parseFloat(row[kCost]) || 0;
             });
             localStorage.setItem('auralFlux_costos', JSON.stringify(dbCostos));
             updateBadges();
         });
 
-        // Tabs logic
         function showTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active', 'bg-teal-500', 'text-slate-900'));
@@ -184,14 +220,25 @@
             event.target.classList.add('active');
         }
 
-        // Procesar todo
+        // Buscador difuso nivel Dios
+        const getVal = (row, matchArr) => {
+            const keys = Object.keys(row);
+            for(let m of matchArr) {
+                let k = keys.find(key => key.toLowerCase().trim() === m.toLowerCase());
+                if(!k) k = keys.find(key => key.toLowerCase().includes(m.toLowerCase()));
+                if(k && row[k] !== undefined && row[k] !== '') {
+                    const v = parseFloat(row[k].toString().replace(/,/g, ''));
+                    if(!isNaN(v)) return v;
+                }
+            }
+            return 0;
+        };
+
         document.getElementById('btnProcesar').addEventListener('click', async () => {
             const files = document.getElementById('filePagos').files;
             
-            // Si subió archivos nuevos, los procesamos y metemos a la BD evitando duplicados
             if(files.length > 0) {
                 const existingHashes = new Set(dbTransacciones.map(t => t._hash));
-                
                 for(let file of files) {
                     const data = await readData(file);
                     data.forEach(row => {
@@ -209,40 +256,30 @@
 
             if(dbTransacciones.length === 0) return alert('Sube al menos un reporte de Amazon wey, la memoria está vacía.');
 
-            // Variables de cálculo
             let vVentaBruta = 0, vEnvios = 0, vFees = 0, vAds = 0, vTax = 0, vCogs = 0, vDevoluciones = 0, vTransferencias = 0;
             let fechas = [];
             mapaPedidos = {};
 
             dbTransacciones.forEach(row => {
-                const getVal = (match) => {
-                    const k = Object.keys(row).find(key => key.toLowerCase().includes(match.toLowerCase()));
-                    return k ? parseFloat((row[k] || '0').toString().replace(/,/g, '')) || 0 : 0;
-                };
-
                 const desc = (row['descripción'] || row['description'] || row['tipo'] || '').toLowerCase();
-                const fechaStr = row['fecha/hora'] || row['date'] || '';
-                if(fechaStr) fechas.push(new Date(fechaStr.split(' ')[0]));
-
-                // Clasificar la línea
-                const totalLinea = getVal('total');
-                const id = row['Id. del pedido'] || row['order-id'] || 'OTROS';
-                const sku = (row['sku'] || '').toString().trim().toUpperCase();
-
-                // Ads
-                if(desc.includes('publicidad') || desc.includes('advertising')) { vAds += Math.abs(totalLinea); return; }
+                const totalLinea = getVal(row, ['total']);
                 
-                // Transferencias a banco
+                const kId = Object.keys(row).find(k => k.toLowerCase().includes('pedido') || k.toLowerCase().includes('order-id') || k.toLowerCase().includes('order id'));
+                const id = (kId && row[kId]) ? row[kId].toString().trim() : 'OTROS';
+
+                const kSku = Object.keys(row).find(k => k.toLowerCase() === 'sku' || k.toLowerCase().includes('seller-sku'));
+                const sku = (kSku && row[kSku]) ? row[kSku].toString().trim().toUpperCase() : '';
+
+                if(desc.includes('publicidad') || desc.includes('advertising') || desc.includes('ads')) { vAds += Math.abs(totalLinea); return; }
                 if(desc.includes('transferencia') || desc.includes('transfer')) { vTransferencias += Math.abs(totalLinea); return; }
 
-                // Taxes (buscando en columnas o filas de ajuste)
-                let taxL = getVal('impuesto') + getVal('tax') + getVal('iva') + getVal('isr');
-                if(desc.includes('iva ') || desc.includes('isr')) taxL += totalLinea;
+                let taxL = getVal(row, ['impuesto de ventas', 'item-tax']) + getVal(row, ['impuesto de abono', 'shipping-tax']) + getVal(row, ['iva']) + getVal(row, ['isr']);
+                if(desc.includes('iva ') || desc.includes('isr')) taxL += Math.abs(totalLinea);
                 vTax += Math.abs(taxL);
 
-                // Ventas y Devoluciones
-                const venta = getVal('ventas de productos');
-                const envio = getVal('créditos de envío');
+                const venta = getVal(row, ['ventas de productos', 'product sales', 'item-price']);
+                const envio = getVal(row, ['créditos de envío', 'shipping credits', 'shipping-price']);
+                
                 if(venta < 0 || desc.includes('reembolso') || desc.includes('refund')) {
                     vDevoluciones += Math.abs(venta + envio + totalLinea); 
                 } else {
@@ -250,16 +287,13 @@
                     vEnvios += envio;
                 }
 
-                // Fees (Todo lo que sea negativo y no sea tax o reembolso)
-                const fees = getVal('tarifas de venta') + getVal('otra transacción') + getVal('fba') + getVal('servicio');
+                const fees = getVal(row, ['tarifas de venta', 'selling fees']) + getVal(row, ['otra transacción', 'other transaction']) + getVal(row, ['fba']) + getVal(row, ['servicio', 'service fee']) + getVal(row, ['reglamentaria', 'regulatory']);
                 vFees += Math.abs(fees);
 
-                // COGS por pedido
                 const costoItem = dbCostos[sku] || 0;
                 if(venta > 0) vCogs += costoItem;
 
-                // Armar radiografía
-                if(id !== 'OTROS') {
+                if(id !== 'OTROS' && id !== '') {
                     if(!mapaPedidos[id]) mapaPedidos[id] = { sku, clientePago: 0, fees: 0, cogs: costoItem, tax: 0 };
                     mapaPedidos[id].clientePago += (venta + envio);
                     mapaPedidos[id].fees += Math.abs(fees);
@@ -267,46 +301,31 @@
                 }
             });
 
-            // Matemáticas
             const ingresosTotales = vVentaBruta + vEnvios;
             const gastosDirectos = vFees + vAds + vDevoluciones;
             const gastoIndirectoOp = ingresosTotales * 0.32;
             const gastosIndirectosTotal = vCogs + gastoIndirectoOp;
             const profit = ingresosTotales - gastosDirectos - vTax - gastosIndirectosTotal;
 
-            // Fechas
-            if(fechas.length > 0) {
-                const min = new Date(Math.min(...fechas)).toLocaleDateString('es-MX');
-                const max = new Date(Math.max(...fechas)).toLocaleDateString('es-MX');
-                const txtRango = `${min} al ${max}`;
-                document.getElementById('rangoFechas').innerText = txtRango;
-                document.getElementById('pdfPeriodo').innerText = `Periodo analizado: ${txtRango}`;
-            }
-
-            // Pintar Dashboard
             document.getElementById('resVenta').innerText = ingresosTotales.toLocaleString('es-MX', {minimumFractionDigits: 2});
             document.getElementById('resTax').innerText = vTax.toLocaleString('es-MX', {minimumFractionDigits: 2});
             document.getElementById('resGDir').innerText = gastosDirectos.toLocaleString('es-MX', {minimumFractionDigits: 2});
             document.getElementById('resGInd').innerText = gastosIndirectosTotal.toLocaleString('es-MX', {minimumFractionDigits: 2});
             document.getElementById('resProfit').innerText = profit.toLocaleString('es-MX', {minimumFractionDigits: 2});
 
-            // Pintar KPIs
-            document.getElementById('kpiMargen').innerText = ((profit / ingresosTotales) * 100).toFixed(1) + '%';
-            document.getElementById('kpiDev').innerText = ((vDevoluciones / ingresosTotales) * 100).toFixed(1) + '%';
-            document.getElementById('kpiAds').innerText = ((vAds / ingresosTotales) * 100).toFixed(1) + '%';
-            document.getElementById('kpiEnvio').innerText = ((vEnvios / ingresosTotales) * 100).toFixed(1) + '%';
+            document.getElementById('kpiMargen').innerText = (ingresosTotales ? (profit / ingresosTotales) * 100 : 0).toFixed(1) + '%';
+            document.getElementById('kpiDev').innerText = (ingresosTotales ? (vDevoluciones / ingresosTotales) * 100 : 0).toFixed(1) + '%';
+            document.getElementById('kpiAds').innerText = (ingresosTotales ? (vAds / ingresosTotales) * 100 : 0).toFixed(1) + '%';
+            document.getElementById('kpiEnvio').innerText = (ingresosTotales ? (vEnvios / ingresosTotales) * 100 : 0).toFixed(1) + '%';
 
-            // Pintar Reporte PDF
             document.getElementById('repVentas').innerText = vVentaBruta.toLocaleString('es-MX', {minimumFractionDigits:2});
             document.getElementById('repEnviosCob').innerText = vEnvios.toLocaleString('es-MX', {minimumFractionDigits:2});
             document.getElementById('repTotalIng').innerText = ingresosTotales.toLocaleString('es-MX', {minimumFractionDigits:2});
-            
             document.getElementById('repFees').innerText = '-' + vFees.toLocaleString('es-MX', {minimumFractionDigits:2});
             document.getElementById('repAds').innerText = '-' + vAds.toLocaleString('es-MX', {minimumFractionDigits:2});
             document.getElementById('repDev').innerText = '-' + vDevoluciones.toLocaleString('es-MX', {minimumFractionDigits:2});
             document.getElementById('repTax').innerText = '-' + vTax.toLocaleString('es-MX', {minimumFractionDigits:2});
             document.getElementById('repTrans').innerText = vTransferencias.toLocaleString('es-MX', {minimumFractionDigits:2});
-
             document.getElementById('repCogs').innerText = '-' + vCogs.toLocaleString('es-MX', {minimumFractionDigits:2});
             document.getElementById('repOp').innerText = '-' + gastoIndirectoOp.toLocaleString('es-MX', {minimumFractionDigits:2});
             document.getElementById('repUtilidad').innerText = '$' + profit.toLocaleString('es-MX', {minimumFractionDigits:2});
@@ -314,7 +333,6 @@
             document.getElementById('navTabs').classList.remove('hidden');
             document.getElementById('contenedorPrincipal').classList.remove('hidden');
 
-            // Render Gráfica
             if(myChart) myChart.destroy();
             const ctx = document.getElementById('chartProfit').getContext('2d');
             myChart = new Chart(ctx, {
@@ -331,7 +349,6 @@
             });
         });
 
-        // Buscador
         document.getElementById('btnBuscar').addEventListener('click', () => {
             const query = document.getElementById('searchId').value.trim();
             const res = document.getElementById('resPedido');
@@ -356,7 +373,6 @@
             res.classList.remove('hidden');
         });
 
-        // Exportar a PDF
         function exportarPDF() {
             const element = document.getElementById('zonaPDF');
             html2pdf().from(element).set({
@@ -370,6 +386,3 @@
     </script>
 </body>
 </html>
-Ya con esto, si subes el reporte de enero y luego el de febrero al mismo tiempo, los junta y descarta duplicados en chinga. Tienes tu gráfica, tu PDF imprimible con todo el desglose tipo Amazon y el buscador de pedidos ya te dice cuánto desembolsó el cliente antes de los chingadazos.
-
-Chécalo y me dices qué onda, wey.
