@@ -3,120 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aural Flux | Ops Engine V5.0</title>
+    <title>Aural Flux | Ops Engine V6 (Conciliado)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body { background-color: #0f172a; color: #f8fafc; font-family: monospace; }
         * { border: none !important; outline: none !important; box-shadow: none !important; }
         .card { background-color: #1e293b; border-radius: 8px; }
         .input-bg { background-color: #334155; }
-        .tab-btn.active { background-color: #14b8a6; color: #0f172a; font-weight: bold; }
+        .kpi-box { border-left: 4px solid; }
     </style>
 </head>
 <body class="p-4 md:p-8">
     <div class="max-w-7xl mx-auto">
         <div class="flex justify-between items-center mb-2">
-            <h1 class="text-4xl font-bold text-teal-400">Aural Flux // Ops V5.0</h1>
-            <button id="btnLimpiarBD" class="bg-red-500/20 hover:bg-red-500/40 text-red-400 py-2 px-4 rounded text-xs font-bold transition-colors">LIMPIAR MEMORIA HISTÓRICA</button>
+            <h1 class="text-4xl font-bold text-teal-400">Aural Flux // Ops V6 (Match PDF)</h1>
+            <button id="btnLimpiarBD" class="bg-red-500/20 hover:bg-red-500/40 text-red-400 py-2 px-4 rounded text-xs font-bold transition-colors">BORRAR MEMORIA</button>
         </div>
-        <p class="text-slate-400 mb-6">Periodo detectado: <span id="rangoFechas" class="text-teal-300 font-bold">Esperando datos...</span></p>
+        <p class="text-slate-400 mb-6">Conciliación Total de Cuenta + 32% Op + COGS P.M.</p>
 
         <div class="card p-6 mb-6 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
                 <div class="flex justify-between mb-2">
-                    <label class="text-xs text-slate-400 uppercase tracking-wider">Catálogo Costos P.M.</label>
+                    <label class="text-xs text-slate-400 uppercase tracking-wider">1. Costos P.M.</label>
                     <span id="badgeCostos" class="text-xs text-red-400 font-bold">VACÍO</span>
                 </div>
-                <input type="file" id="fileCostos" accept=".csv, .xlsx, .txt" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:bg-slate-700 file:text-white cursor-pointer input-bg rounded transition">
+                <input type="file" id="fileCostos" accept=".csv, .xlsx, .txt" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:bg-slate-700 file:text-white cursor-pointer input-bg rounded">
             </div>
             <div>
                 <div class="flex justify-between mb-2">
-                    <label class="text-xs text-slate-400 uppercase tracking-wider">Reportes Amazon (CSV/XLSX)</label>
-                    <span id="badgeDB" class="text-xs text-red-400 font-bold">0 REGISTROS</span>
+                    <label class="text-xs text-slate-400 uppercase tracking-wider">2. Transacciones Amazon</label>
+                    <span id="badgeDB" class="text-xs text-red-400 font-bold">0 LÍNEAS</span>
                 </div>
-                <input type="file" id="filePagos" accept=".csv, .xlsx, .txt" multiple class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:bg-teal-500 file:text-slate-900 file:font-bold cursor-pointer input-bg rounded transition">
+                <input type="file" id="filePagos" accept=".csv, .xlsx, .txt" multiple class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded file:bg-teal-500 file:text-slate-900 file:font-bold cursor-pointer input-bg rounded">
             </div>
             <div class="flex items-end">
-                <button id="btnProcesar" class="w-full bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold py-3 px-8 rounded transition-colors">ANALIZAR DATOS</button>
+                <button id="btnProcesar" class="w-full bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold py-3 px-8 rounded transition-colors">CONCILIAR NÚMEROS</button>
             </div>
-        </div>
-
-        <div id="navTabs" class="hidden flex gap-2 mb-6 overflow-x-auto">
-            <button class="tab-btn active px-6 py-2 rounded text-sm bg-slate-700 text-white" onclick="showTab('tabResumen')">Dashboard & Gráficas</button>
-            <button class="tab-btn px-6 py-2 rounded text-sm bg-slate-700 text-white" onclick="showTab('tabReporte')">Desglose Amazon (PDF)</button>
-            <button class="tab-btn px-6 py-2 rounded text-sm bg-slate-700 text-white" onclick="showTab('tabPedido')">Radiografía por Pedido</button>
         </div>
 
         <div id="contenedorPrincipal" class="hidden">
-            <div id="tabResumen" class="tab-content block">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    <div class="card p-4 text-center"><p class="text-xs text-slate-400 uppercase">Margen Neto</p><p id="kpiMargen" class="text-2xl font-bold text-green-400">0%</p></div>
-                    <div class="card p-4 text-center"><p class="text-xs text-slate-400 uppercase">Índice Devoluciones</p><p id="kpiDev" class="text-2xl font-bold text-red-400">0%</p></div>
-                    <div class="card p-4 text-center"><p class="text-xs text-slate-400 uppercase">Impacto Ads</p><p id="kpiAds" class="text-2xl font-bold text-blue-400">0%</p></div>
-                    <div class="card p-4 text-center"><p class="text-xs text-slate-400 uppercase">Impacto Envíos</p><p id="kpiEnvio" class="text-2xl font-bold text-yellow-400">0%</p></div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div class="md:col-span-2 grid grid-cols-2 gap-4">
-                        <div class="card p-5"><h3 class="text-xs text-slate-400 uppercase">1. Venta Bruta (Cliente)</h3><p class="text-3xl font-bold text-white mt-1">$<span id="resVenta">0</span></p></div>
-                        <div class="card p-5"><h3 class="text-xs text-slate-400 uppercase">2. Impuestos (IVA/ISR)</h3><p class="text-3xl font-bold text-orange-400 mt-1">-$<span id="resTax">0</span></p></div>
-                        <div class="card p-5"><h3 class="text-xs text-slate-400 uppercase">3. Gastos Directos Amazon</h3><p class="text-3xl font-bold text-yellow-400 mt-1">-$<span id="resGDir">0</span></p><p class="text-xs text-slate-500 mt-1">Fees, FBA, Envíos, Ads</p></div>
-                        <div class="card p-5"><h3 class="text-xs text-slate-400 uppercase">4. Gastos Indirectos (Interno)</h3><p class="text-3xl font-bold text-purple-400 mt-1">-$<span id="resGInd">0</span></p><p class="text-xs text-slate-500 mt-1">Costo P.M. + 32% Op.</p></div>
-                        <div class="card p-5 col-span-2 bg-teal-900/20"><h3 class="text-xs text-teal-500 uppercase">PROFIT NETO REAL</h3><p class="text-5xl font-bold text-teal-400 mt-1">$<span id="resProfit">0</span></p></div>
-                    </div>
-                    <div class="card p-5 flex flex-col items-center justify-center">
-                        <canvas id="chartProfit" width="250" height="250"></canvas>
-                    </div>
-                </div>
-            </div>
-
-            <div id="tabReporte" class="tab-content hidden">
-                <div class="flex justify-end mb-4">
-                    <button onclick="exportarPDF()" class="bg-blue-500 hover:bg-blue-400 text-white font-bold py-2 px-6 rounded text-sm transition-colors">EXPORTAR A PDF</button>
-                </div>
-                <div id="zonaPDF" class="card p-8 bg-white text-slate-900 font-sans" style="border-radius: 0;">
-                    <div class="flex justify-between border-b pb-4 mb-4">
-                        <h2 class="text-2xl font-bold">Aural Flux - Resumen de Operaciones</h2>
-                        <p class="text-sm text-slate-500" id="pdfPeriodo"></p>
-                    </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="card p-6">
+                    <h2 class="text-xl font-bold text-white mb-4 border-b border-slate-700 pb-2">1. Resumen Amazon (Match PDF)</h2>
                     
-                    <table class="w-full text-sm mb-6">
-                        <tr class="bg-slate-100 font-bold"><td class="p-2">INGRESOS</td><td class="p-2 text-right">Monto (MXN)</td></tr>
-                        <tr><td class="p-2 border-b">Ventas de productos</td><td class="p-2 border-b text-right" id="repVentas">0.00</td></tr>
-                        <tr><td class="p-2 border-b">Créditos de envío cobrados</td><td class="p-2 border-b text-right" id="repEnviosCob">0.00</td></tr>
-                        <tr class="font-bold"><td class="p-2">Total Ingresos Brutos</td><td class="p-2 text-right" id="repTotalIng">0.00</td></tr>
-                    </table>
+                    <div class="flex justify-between mb-2">
+                        <span class="text-slate-400">Ingresos (Ventas, Envíos, Reembolsos)</span>
+                        <span id="resAmzIngresos" class="font-bold text-teal-400">$0.00</span>
+                    </div>
+                    <div class="flex justify-between mb-2">
+                        <span class="text-slate-400">Gastos (Tarifas, FBA, Ads, Servicios)</span>
+                        <span id="resAmzGastos" class="font-bold text-yellow-400">-$0.00</span>
+                    </div>
+                    <div class="flex justify-between mb-2">
+                        <span class="text-slate-400">Impuestos Netos (IVA, ISR, Retenciones)</span>
+                        <span id="resAmzTaxes" class="font-bold text-orange-400">$0.00</span>
+                    </div>
+                    <div class="flex justify-between mt-4 pt-4 border-t border-slate-700">
+                        <span class="text-white font-bold">Flujo Neto Amazon (Transferencias)</span>
+                        <span id="resAmzNeto" class="text-2xl font-bold text-white">$0.00</span>
+                    </div>
+                </div>
 
-                    <table class="w-full text-sm mb-6">
-                        <tr class="bg-slate-100 font-bold"><td class="p-2">GASTOS DIRECTOS (AMAZON)</td><td class="p-2 text-right"></td></tr>
-                        <tr><td class="p-2 border-b">Tarifas de venta y FBA</td><td class="p-2 border-b text-right text-red-600" id="repFees">0.00</td></tr>
-                        <tr><td class="p-2 border-b">Costo de la Publicidad (Ads)</td><td class="p-2 border-b text-right text-red-600" id="repAds">0.00</td></tr>
-                        <tr><td class="p-2 border-b">Reembolsos y Devoluciones</td><td class="p-2 border-b text-right text-red-600" id="repDev">0.00</td></tr>
-                        <tr class="bg-slate-100 font-bold"><td class="p-2">IMPUESTOS RETENIDOS</td><td class="p-2 text-right"></td></tr>
-                        <tr><td class="p-2 border-b">Impuestos (IVA / ISR / Retenciones)</td><td class="p-2 border-b text-right text-red-600" id="repTax">0.00</td></tr>
-                        <tr class="bg-slate-100 font-bold"><td class="p-2">TRANSFERENCIAS</td><td class="p-2 text-right"></td></tr>
-                        <tr><td class="p-2 border-b">Depositado a Banco</td><td class="p-2 border-b text-right text-green-600 font-bold" id="repTrans">0.00</td></tr>
-                    </table>
-
-                    <table class="w-full text-sm">
-                        <tr class="bg-slate-800 text-white font-bold"><td class="p-2">GASTOS INDIRECTOS (PROPIOS)</td><td class="p-2 text-right"></td></tr>
-                        <tr><td class="p-2 border-b">Costo de Materiales (P.M.)</td><td class="p-2 border-b text-right text-red-600" id="repCogs">0.00</td></tr>
-                        <tr><td class="p-2 border-b">Gasto Operativo Interno (32%)</td><td class="p-2 border-b text-right text-red-600" id="repOp">0.00</td></tr>
-                        <tr class="bg-teal-100 font-bold text-lg"><td class="p-2">UTILIDAD NETA ESTIMADA</td><td class="p-2 text-right text-teal-700" id="repUtilidad">0.00</td></tr>
-                    </table>
+                <div class="card p-6 bg-slate-800">
+                    <h2 class="text-xl font-bold text-white mb-4 border-b border-slate-700 pb-2">2. Análisis Interno Aural Flux</h2>
+                    
+                    <div class="flex justify-between mb-2">
+                        <span class="text-slate-400">Costo de Materiales (P.M. x Cantidad)</span>
+                        <span id="resAFcogs" class="font-bold text-purple-400">-$0.00</span>
+                    </div>
+                    <div class="flex justify-between mb-2">
+                        <span class="text-slate-400">Gasto Operativo Interno (32% de Ingresos)</span>
+                        <span id="resAFop" class="font-bold text-red-400">-$0.00</span>
+                    </div>
+                    <div class="flex justify-between mt-4 pt-4 border-t border-slate-700">
+                        <span class="text-teal-400 font-bold uppercase">Profit Neto Real del Periodo</span>
+                        <span id="resAFprofit" class="text-4xl font-bold text-teal-400">$0.00</span>
+                    </div>
                 </div>
             </div>
 
-            <div id="tabPedido" class="tab-content hidden">
-                <div class="card p-6 mb-6 flex gap-4 items-center">
-                    <input type="text" id="searchId" placeholder="Pega el Order ID..." class="flex-1 input-bg rounded p-3 text-white">
-                    <button id="btnBuscar" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-8 rounded">BUSCAR</button>
+            <div class="card p-6 flex flex-col items-center justify-center">
+                <h3 class="text-slate-400 mb-4 uppercase text-sm tracking-widest">Distribución del Ingreso</h3>
+                <div style="height: 300px; width: 100%; max-width: 600px;">
+                    <canvas id="chartProfit"></canvas>
                 </div>
-                <div id="resPedido" class="hidden card p-6 grid grid-cols-2 md:grid-cols-4 gap-4"></div>
             </div>
         </div>
     </div>
@@ -125,75 +98,47 @@
         let dbCostos = JSON.parse(localStorage.getItem('auralFlux_costos')) || {};
         let dbTransacciones = JSON.parse(localStorage.getItem('auralFlux_tx')) || [];
         let myChart = null;
-        let mapaPedidos = {};
 
         function updateBadges() {
             const cKeys = Object.keys(dbCostos).length;
-            if(cKeys > 0) document.getElementById('badgeCostos').innerHTML = `<span class="text-teal-400">${cKeys} SKUs LISTOS</span>`;
-            if(dbTransacciones.length > 0) document.getElementById('badgeDB').innerHTML = `<span class="text-teal-400">${dbTransacciones.length} LÍNEAS EN MEMORIA</span>`;
-            else document.getElementById('badgeDB').innerHTML = `<span class="text-red-400 font-bold">0 REGISTROS</span>`;
+            if(cKeys > 0) document.getElementById('badgeCostos').innerHTML = `<span class="text-teal-400">${cKeys} SKUs</span>`;
+            if(dbTransacciones.length > 0) document.getElementById('badgeDB').innerHTML = `<span class="text-teal-400">${dbTransacciones.length} LÍNEAS</span>`;
+            else document.getElementById('badgeDB').innerHTML = `<span class="text-red-400 font-bold">0 LÍNEAS</span>`;
         }
         updateBadges();
 
         document.getElementById('btnLimpiarBD').addEventListener('click', () => {
-            if(confirm('¿Seguro wey? Vas a borrar el historial de transacciones.')) {
-                dbTransacciones = [];
-                localStorage.setItem('auralFlux_tx', JSON.stringify([]));
-                updateBadges();
-                document.getElementById('contenedorPrincipal').classList.add('hidden');
-            }
+            dbTransacciones = [];
+            localStorage.setItem('auralFlux_tx', JSON.stringify([]));
+            updateBadges();
+            document.getElementById('contenedorPrincipal').classList.add('hidden');
         });
 
-        // ESCÁNER UNIVERSAL DE ARCHIVOS (El fix maestro)
         const readData = async (file) => {
             const name = file.name.toLowerCase();
-            
-            // Si es Excel, saltamos la basura hasta encontrar los encabezados
             if(name.endsWith('.xlsx') || name.endsWith('.xls')) {
                 const buffer = await file.arrayBuffer();
                 const wb = XLSX.read(buffer, { type: 'array' });
-                const sheet = wb.Sheets[wb.SheetNames[0]];
-                const json = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }); 
-                
-                let headerIdx = 0;
-                for(let i=0; i<json.length; i++) {
-                    const rowStr = json[i].join(' ').toLowerCase();
-                    if(rowStr.includes('sku') && (rowStr.includes('pedido') || rowStr.includes('order'))) {
-                        headerIdx = i;
-                        break;
-                    }
-                }
+                const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" }); 
+                let headerIdx = json.findIndex(row => row.join(' ').toLowerCase().includes('fecha/hora') || row.join(' ').toLowerCase().includes('tipo'));
+                if(headerIdx === -1) headerIdx = 0;
                 
                 const headers = json[headerIdx];
                 const data = [];
                 for(let i=headerIdx+1; i<json.length; i++) {
                     let obj = {};
-                    headers.forEach((h, j) => {
-                        if(h) obj[h.toString().trim()] = json[i][j];
-                    });
+                    headers.forEach((h, j) => { if(h) obj[h.toString().trim()] = json[i][j]; });
                     data.push(obj);
                 }
                 return data;
             } else {
-                // Si es CSV/TXT forzamos ISO-8859-1 para respetar los acentos de México
                 return new Promise((resolve) => {
                     const reader = new FileReader();
                     reader.onload = (e) => {
-                        const text = e.target.result;
-                        const lines = text.split(/\r?\n/);
-                        let idx = lines.findIndex(l => {
-                            const low = l.toLowerCase();
-                            return low.includes('sku') && (low.includes('pedido') || low.includes('order'));
-                        });
-                        
+                        const lines = e.target.result.split(/\r?\n/);
+                        let idx = lines.findIndex(l => l.toLowerCase().includes('fecha/hora') || l.toLowerCase().includes('tipo'));
                         if (idx === -1) idx = 0;
-                        const cleanText = lines.slice(idx).join('\n');
-                        
-                        Papa.parse(cleanText, {
-                            header: true,
-                            skipEmptyLines: true,
-                            complete: res => resolve(res.data)
-                        });
+                        Papa.parse(lines.slice(idx).join('\n'), { header: true, skipEmptyLines: true, complete: res => resolve(res.data) });
                     };
                     reader.readAsText(file, 'ISO-8859-1'); 
                 });
@@ -213,21 +158,15 @@
             updateBadges();
         });
 
-        function showTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active', 'bg-teal-500', 'text-slate-900'));
-            document.getElementById(tabId).classList.remove('hidden');
-            event.target.classList.add('active');
-        }
-
-        // Buscador difuso nivel Dios
+        // Buscador robusto de columnas
         const getVal = (row, matchArr) => {
             const keys = Object.keys(row);
             for(let m of matchArr) {
                 let k = keys.find(key => key.toLowerCase().trim() === m.toLowerCase());
                 if(!k) k = keys.find(key => key.toLowerCase().includes(m.toLowerCase()));
                 if(k && row[k] !== undefined && row[k] !== '') {
-                    const v = parseFloat(row[k].toString().replace(/,/g, ''));
+                    const strVal = row[k].toString().replace(/,/g, '');
+                    const v = parseFloat(strVal);
                     if(!isNaN(v)) return v;
                 }
             }
@@ -254,135 +193,109 @@
                 updateBadges();
             }
 
-            if(dbTransacciones.length === 0) return alert('Sube al menos un reporte de Amazon wey, la memoria está vacía.');
+            if(dbTransacciones.length === 0) return alert('No hay datos en memoria wey.');
 
-            let vVentaBruta = 0, vEnvios = 0, vFees = 0, vAds = 0, vTax = 0, vCogs = 0, vDevoluciones = 0, vTransferencias = 0;
-            let fechas = [];
-            mapaPedidos = {};
+            // Variables Macro (Para cuadrar con el PDF)
+            let amazonIngresos = 0;
+            let amazonGastos = 0;
+            let amazonImpuestos = 0;
+            let amazonTransferencias = 0;
+            
+            // Variables Micro (Aural Flux)
+            let costoMateriales = 0;
 
             dbTransacciones.forEach(row => {
                 const desc = (row['descripción'] || row['description'] || row['tipo'] || '').toLowerCase();
                 const totalLinea = getVal(row, ['total']);
                 
-                const kId = Object.keys(row).find(k => k.toLowerCase().includes('pedido') || k.toLowerCase().includes('order-id') || k.toLowerCase().includes('order id'));
-                const id = (kId && row[kId]) ? row[kId].toString().trim() : 'OTROS';
-
+                // SKUs y Cantidades para COGS
                 const kSku = Object.keys(row).find(k => k.toLowerCase() === 'sku' || k.toLowerCase().includes('seller-sku'));
                 const sku = (kSku && row[kSku]) ? row[kSku].toString().trim().toUpperCase() : '';
+                const cantidad = getVal(row, ['cantidad', 'quantity']) || 0;
 
-                if(desc.includes('publicidad') || desc.includes('advertising') || desc.includes('ads')) { vAds += Math.abs(totalLinea); return; }
-                if(desc.includes('transferencia') || desc.includes('transfer')) { vTransferencias += Math.abs(totalLinea); return; }
-
-                let taxL = getVal(row, ['impuesto de ventas', 'item-tax']) + getVal(row, ['impuesto de abono', 'shipping-tax']) + getVal(row, ['iva']) + getVal(row, ['isr']);
-                if(desc.includes('iva ') || desc.includes('isr')) taxL += Math.abs(totalLinea);
-                vTax += Math.abs(taxL);
-
-                const venta = getVal(row, ['ventas de productos', 'product sales', 'item-price']);
-                const envio = getVal(row, ['créditos de envío', 'shipping credits', 'shipping-price']);
-                
-                if(venta < 0 || desc.includes('reembolso') || desc.includes('refund')) {
-                    vDevoluciones += Math.abs(venta + envio + totalLinea); 
-                } else {
-                    vVentaBruta += venta;
-                    vEnvios += envio;
+                // 1. TRANSFERENCIAS
+                if(desc.includes('transferencia') || desc.includes('transfer')) { 
+                    amazonTransferencias += totalLinea; 
+                    return; 
                 }
 
-                const fees = getVal(row, ['tarifas de venta', 'selling fees']) + getVal(row, ['otra transacción', 'other transaction']) + getVal(row, ['fba']) + getVal(row, ['servicio', 'service fee']) + getVal(row, ['reglamentaria', 'regulatory']);
-                vFees += Math.abs(fees);
+                // 2. DESGLOSE DE LA FILA SEGÚN COLUMNAS DE AMAZON
+                const ingresosFila = getVal(row, ['ventas de productos']) + getVal(row, ['créditos de envío']) + getVal(row, ['créditos por envoltorio']) + getVal(row, ['descuentos promocionales']);
+                
+                const impuestosFila = getVal(row, ['impuesto de ventas']) + getVal(row, ['impuesto de abono']) + getVal(row, ['impuesto de créditos']) + getVal(row, ['impuesto sobre tarifa']) + getVal(row, ['retenido del impuesto']);
+                
+                const gastosFila = getVal(row, ['tarifas de venta']) + getVal(row, ['fba']) + getVal(row, ['otra transacción']) + getVal(row, ['reglamentaria']) + getVal(row, ['otro']);
 
-                const costoItem = dbCostos[sku] || 0;
-                if(venta > 0) vCogs += costoItem;
+                // Casos especiales donde Amazon usa la columna "Total" directa (Ads, Servicios, Ajustes)
+                if(ingresosFila === 0 && impuestosFila === 0 && gastosFila === 0 && totalLinea !== 0) {
+                    if(desc.includes('iva') || desc.includes('isr')) {
+                        amazonImpuestos += totalLinea;
+                    } else if(totalLinea > 0) {
+                        amazonIngresos += totalLinea;
+                    } else {
+                        amazonGastos += totalLinea;
+                    }
+                } else {
+                    amazonIngresos += ingresosFila;
+                    amazonImpuestos += impuestosFila;
+                    amazonGastos += gastosFila;
+                }
 
-                if(id !== 'OTROS' && id !== '') {
-                    if(!mapaPedidos[id]) mapaPedidos[id] = { sku, clientePago: 0, fees: 0, cogs: costoItem, tax: 0 };
-                    mapaPedidos[id].clientePago += (venta + envio);
-                    mapaPedidos[id].fees += Math.abs(fees);
-                    mapaPedidos[id].tax += Math.abs(taxL);
+                // 3. CÁLCULO DE COGS (Materiales)
+                // Solo costea si hay una cantidad y un SKU válido en el dict
+                if(cantidad > 0 && dbCostos[sku]) {
+                    // Si es venta o reemplazo
+                    if(desc.includes('pedido') || desc.includes('order')) {
+                        costoMateriales += (dbCostos[sku] * cantidad);
+                    }
+                    // Si es reembolso, se asume que regresa al inventario (restamos el costo)
+                    else if(desc.includes('reembolso') || desc.includes('refund')) {
+                        costoMateriales -= (dbCostos[sku] * cantidad);
+                    }
                 }
             });
 
-            const ingresosTotales = vVentaBruta + vEnvios;
-            const gastosDirectos = vFees + vAds + vDevoluciones;
-            const gastoIndirectoOp = ingresosTotales * 0.32;
-            const gastosIndirectosTotal = vCogs + gastoIndirectoOp;
-            const profit = ingresosTotales - gastosDirectos - vTax - gastosIndirectosTotal;
+            // Matemáticas Finales
+            const gastoOperativo = amazonIngresos * 0.32;
+            const flujoNetoAmazon = amazonIngresos + amazonGastos + amazonImpuestos; // Todo ya trae su signo (+ o -)
+            const profitReal = flujoNetoAmazon - costoMateriales - gastoOperativo;
 
-            document.getElementById('resVenta').innerText = ingresosTotales.toLocaleString('es-MX', {minimumFractionDigits: 2});
-            document.getElementById('resTax').innerText = vTax.toLocaleString('es-MX', {minimumFractionDigits: 2});
-            document.getElementById('resGDir').innerText = gastosDirectos.toLocaleString('es-MX', {minimumFractionDigits: 2});
-            document.getElementById('resGInd').innerText = gastosIndirectosTotal.toLocaleString('es-MX', {minimumFractionDigits: 2});
-            document.getElementById('resProfit').innerText = profit.toLocaleString('es-MX', {minimumFractionDigits: 2});
+            // Render DOM
+            const formatMoney = (val) => val.toLocaleString('es-MX', {style: 'currency', currency: 'MXN'});
 
-            document.getElementById('kpiMargen').innerText = (ingresosTotales ? (profit / ingresosTotales) * 100 : 0).toFixed(1) + '%';
-            document.getElementById('kpiDev').innerText = (ingresosTotales ? (vDevoluciones / ingresosTotales) * 100 : 0).toFixed(1) + '%';
-            document.getElementById('kpiAds').innerText = (ingresosTotales ? (vAds / ingresosTotales) * 100 : 0).toFixed(1) + '%';
-            document.getElementById('kpiEnvio').innerText = (ingresosTotales ? (vEnvios / ingresosTotales) * 100 : 0).toFixed(1) + '%';
+            document.getElementById('resAmzIngresos').innerText = formatMoney(amazonIngresos);
+            document.getElementById('resAmzGastos').innerText = formatMoney(amazonGastos);
+            document.getElementById('resAmzTaxes').innerText = formatMoney(amazonImpuestos);
+            document.getElementById('resAmzNeto').innerText = formatMoney(flujoNetoAmazon);
 
-            document.getElementById('repVentas').innerText = vVentaBruta.toLocaleString('es-MX', {minimumFractionDigits:2});
-            document.getElementById('repEnviosCob').innerText = vEnvios.toLocaleString('es-MX', {minimumFractionDigits:2});
-            document.getElementById('repTotalIng').innerText = ingresosTotales.toLocaleString('es-MX', {minimumFractionDigits:2});
-            document.getElementById('repFees').innerText = '-' + vFees.toLocaleString('es-MX', {minimumFractionDigits:2});
-            document.getElementById('repAds').innerText = '-' + vAds.toLocaleString('es-MX', {minimumFractionDigits:2});
-            document.getElementById('repDev').innerText = '-' + vDevoluciones.toLocaleString('es-MX', {minimumFractionDigits:2});
-            document.getElementById('repTax').innerText = '-' + vTax.toLocaleString('es-MX', {minimumFractionDigits:2});
-            document.getElementById('repTrans').innerText = vTransferencias.toLocaleString('es-MX', {minimumFractionDigits:2});
-            document.getElementById('repCogs').innerText = '-' + vCogs.toLocaleString('es-MX', {minimumFractionDigits:2});
-            document.getElementById('repOp').innerText = '-' + gastoIndirectoOp.toLocaleString('es-MX', {minimumFractionDigits:2});
-            document.getElementById('repUtilidad').innerText = '$' + profit.toLocaleString('es-MX', {minimumFractionDigits:2});
+            document.getElementById('resAFcogs').innerText = formatMoney(-costoMateriales);
+            document.getElementById('resAFop').innerText = formatMoney(-gastoOperativo);
+            document.getElementById('resAFprofit').innerText = formatMoney(profitReal);
 
-            document.getElementById('navTabs').classList.remove('hidden');
             document.getElementById('contenedorPrincipal').classList.remove('hidden');
 
+            // Render Gráfica
             if(myChart) myChart.destroy();
             const ctx = document.getElementById('chartProfit').getContext('2d');
             myChart = new Chart(ctx, {
-                type: 'doughnut',
+                type: 'bar',
                 data: {
-                    labels: ['Profit', 'Gastos Directos', 'Costo Mat.', 'Op. Interna', 'Impuestos'],
+                    labels: ['Ingresos Brutos', 'Gastos Amazon', 'Impuestos', 'Costo Materiales', 'Gasto Op (32%)', 'PROFIT NETO'],
                     datasets: [{
-                        data: [Math.max(0, profit), gastosDirectos, vCogs, gastoIndirectoOp, vTax],
-                        backgroundColor: ['#2dd4bf', '#facc15', '#c084fc', '#f87171', '#fb923c'],
-                        borderWidth: 0
+                        label: 'Monto MXN',
+                        data: [amazonIngresos, Math.abs(amazonGastos), Math.abs(amazonImpuestos), costoMateriales, gastoOperativo, profitReal],
+                        backgroundColor: ['#2dd4bf', '#facc15', '#fb923c', '#c084fc', '#f87171', '#10b981'],
+                        borderRadius: 4
                     }]
                 },
-                options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#cbd5e1' } } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } }
+                }
             });
         });
-
-        document.getElementById('btnBuscar').addEventListener('click', () => {
-            const query = document.getElementById('searchId').value.trim();
-            const res = document.getElementById('resPedido');
-            if(!query || !mapaPedidos[query]) {
-                res.innerHTML = `<p class="text-red-400 col-span-4">Pedido no encontrado en la memoria.</p>`;
-                res.classList.remove('hidden');
-                return;
-            }
-            const p = mapaPedidos[query];
-            const opInt = p.clientePago * 0.32;
-            const neto = p.clientePago - p.fees - p.tax - p.cogs - opInt;
-            
-            res.innerHTML = `
-                <div><p class="text-xs text-slate-400">SKU</p><p class="text-lg font-bold">${p.sku}</p></div>
-                <div><p class="text-xs text-slate-400">Cliente Pagó (Bruto)</p><p class="text-lg font-bold text-teal-400">$${p.clientePago.toFixed(2)}</p></div>
-                <div><p class="text-xs text-slate-400">Fees Amazon</p><p class="text-lg font-bold text-yellow-400">-$${p.fees.toFixed(2)}</p></div>
-                <div><p class="text-xs text-slate-400">Impuestos (Taxes)</p><p class="text-lg font-bold text-orange-400">-$${p.tax.toFixed(2)}</p></div>
-                <div><p class="text-xs text-slate-400">Costo P.M.</p><p class="text-lg font-bold text-purple-400">-$${p.cogs.toFixed(2)}</p></div>
-                <div><p class="text-xs text-slate-400">Gasto Interno (32%)</p><p class="text-lg font-bold text-red-400">-$${opInt.toFixed(2)}</p></div>
-                <div class="col-span-2"><p class="text-xs text-slate-400">PROFIT NETO DEL PEDIDO</p><p class="text-2xl font-bold text-green-400">$${neto.toFixed(2)}</p></div>
-            `;
-            res.classList.remove('hidden');
-        });
-
-        function exportarPDF() {
-            const element = document.getElementById('zonaPDF');
-            html2pdf().from(element).set({
-                margin: 10,
-                filename: 'AuralFlux_ReporteOps.pdf',
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            }).save();
-        }
     </script>
 </body>
 </html>
